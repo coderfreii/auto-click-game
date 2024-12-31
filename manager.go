@@ -2,14 +2,15 @@ package main
 
 import (
 	"fmt"
-	"github.com/fatih/color"
-	"github.com/go-vgo/robotgo"
-	"github.com/vcaesar/gcv"
 	"image"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/fatih/color"
+	"github.com/go-vgo/robotgo"
+	"gocv.io/x/gocv"
 )
 
 type ManagerConfig struct {
@@ -68,13 +69,6 @@ func NewManager(cfg ManagerConfig) Manager {
 	}
 }
 
-// 进行图像识别，在img中找temp，并返回在img中找到的的temp左上角坐标
-func findTempPos(temp, img image.Image) (int, int, float32) {
-	//把image.Image统一转换成image.RGBA，不然会断言失败
-	_, num, _, pos := gcv.FindImg(jpg2RGBA(temp), jpg2RGBA(img))
-	return pos.X, pos.Y, num
-}
-
 // 根据img中找到的的temp左上角坐标，和temp的最大长宽，计算出一块可以点击的区域，并随机点击
 func randomClick(tempPosX, tempPosY, tempMaxX, tempMaxY int) {
 	//用qq截图软件截下来的图，分辨率是真实分辨率二倍，所以除以2以对应真实分辨率
@@ -95,6 +89,10 @@ func randomClick(tempPosX, tempPosY, tempMaxX, tempMaxY int) {
 }
 
 func (m *Manager) work() {
+	// 创建一个窗口用于显示图像
+	window := gocv.NewWindow("Screen Capture")
+	defer window.Close()
+
 	fmt.Println("")
 	color.Cyan("                 m                         \"\"#      \"           #\n  mmm   m   m  mm#mm   mmm           mmm     #    mmm     mmm   #   m\n \"   #  #   #    #    #\" \"#         #\"  \"    #      #    #\"  \"  # m\"\n m\"\"\"#  #   #    #    #   #   \"\"\"   #        #      #    #      #\"#\n \"mm\"#  \"mm\"#    \"mm  \"#m#\"         \"#mm\"    \"mm  mm#mm  \"#mm\"  #  \"m")
 	fmt.Println("")
@@ -105,6 +103,8 @@ func (m *Manager) work() {
 		//捕获当前屏幕
 		start := time.Now()
 		screenImg, _ := robotgo.CaptureImg()
+		// updateImage(window, screenImg)
+
 		cost := time.Since(start)
 
 		fmt.Println("_______________________________")
@@ -113,7 +113,7 @@ func (m *Manager) work() {
 		//逐一匹配样板图片
 		for _, img := range m.ImgInfos {
 			start := time.Now()
-			tempPosX, tempPosY, num := findTempPos(img.Img, screenImg)
+			tempPosX, tempPosY, num := findTempPosWithFeatures(img.Img, screenImg)
 			cost := time.Since(start)
 
 			fmt.Print(" 正在匹配：", img.path, " 相似度：", num, " 匹配耗时：", cost)
